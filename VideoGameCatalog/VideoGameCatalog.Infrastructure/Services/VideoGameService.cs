@@ -14,13 +14,46 @@ public class VideoGameService(AppDbContext context) : IVideoGameService
         g.GenreId, g.Genre.Name, g.PlatformId, g.Platform.Name
     );
 
-    public async Task<IEnumerable<VideoGameDto>> GetAllAsync() =>
-        await context.VideoGames
+    public async Task<PagedResultDto<VideoGameDto>> GetAllAsync(GameQueryParams q)
+    {
+        var query = context.VideoGames
             .Include(g => g.Genre)
             .Include(g => g.Platform)
-            .OrderBy(g => g.Title)
+            .AsQueryable();
+
+        // 1. Filter
+        if (!string.IsNullOrWhiteSpace(q.Search))
+            query = query.Where(g => g.Title.Contains(q.Search));
+
+        // 2. Sort
+        query = (q.SortBy?.ToLower(), q.SortDir?.ToLower()) switch
+        {
+            ("developer",   "desc") => query.OrderByDescending(g => g.Developer),
+            ("developer",   _)      => query.OrderBy(g => g.Developer),
+            ("releaseyear", "desc") => query.OrderByDescending(g => g.ReleaseYear),
+            ("releaseyear", _)      => query.OrderBy(g => g.ReleaseYear),
+            ("genre",       "desc") => query.OrderByDescending(g => g.Genre.Name),
+            ("genre",       _)      => query.OrderBy(g => g.Genre.Name),
+            ("platform",    "desc") => query.OrderByDescending(g => g.Platform.Name),
+            ("platform",    _)      => query.OrderBy(g => g.Platform.Name),
+            (_,             "desc") => query.OrderByDescending(g => g.Title),
+            _                       => query.OrderBy(g => g.Title),
+        };
+
+        // 3. Total count (before paging, for pagination widget)
+        var total = await query.CountAsync();
+
+        // 4. Page
+        var items = await query
+            .Skip((q.Page - 1) * q.PageSize)
+            .Take(q.PageSize)
             .Select(g => ToDto(g))
             .ToListAsync();
+
+        return new PagedResultDto<VideoGameDto>(items, total, q.Page, q.PageSize);
+    }
+
+
 
     public async Task<VideoGameDto?> GetByIdAsync(int id)
     {

@@ -8,10 +8,11 @@ namespace VideoGameCatalog.Api.Controllers;
 [Route("api/[controller]")]
 public class GamesController(IVideoGameService service) : ControllerBase
 {
-    // GET /api/games
+    // GET /api/games?page=1&pageSize=10&search=&sortBy=title&sortDir=asc
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<VideoGameDto>>> GetAll() =>
-        Ok(await service.GetAllAsync());
+    public async Task<ActionResult<PagedResultDto<VideoGameDto>>> GetAll([FromQuery] GameQueryParams query) =>
+        Ok(await service.GetAllAsync(query));
+
 
     // GET /api/games/5
     [HttpGet("{id:int}")]
