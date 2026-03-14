@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using NLog.Web;
+using Scalar.AspNetCore;
 using VideoGameCatalog.Api.Middleware;
 using VideoGameCatalog.Core.Interfaces;
 using VideoGameCatalog.Infrastructure.Data;
@@ -44,6 +45,7 @@ app.UseExceptionHandler();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.MapScalarApiReference();
 }
 
 app.UseCors("AllowAngularDev");
