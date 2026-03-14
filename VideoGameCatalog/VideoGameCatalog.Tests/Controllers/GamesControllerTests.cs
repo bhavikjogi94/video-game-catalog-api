@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Moq;
 using VideoGameCatalog.Api.Controllers;
 using VideoGameCatalog.Core.DTOs;
+using VideoGameCatalog.Core.Exceptions;
 using VideoGameCatalog.Core.Interfaces;
 
 namespace VideoGameCatalog.Tests.Controllers;
@@ -39,38 +40,40 @@ public class GamesControllerTests
     // ── GET /api/games ────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task GetAll_WhenGamesExist_ReturnsOkWithList()
+    public async Task GetAll_WhenGamesExist_ReturnsOkWithPagedResult()
     {
         // Arrange
         var games = new List<VideoGameDto> { MakeDto(1), MakeDto(2) };
+        var pagedResult = new PagedResultDto<VideoGameDto>(games, 2, 1, 10);
         var mockService = new Mock<IVideoGameService>();
-        mockService.Setup(s => s.GetAllAsync()).ReturnsAsync(games);
+        mockService.Setup(s => s.GetAllAsync(It.IsAny<GameQueryParams>())).ReturnsAsync(pagedResult);
         var controller = new GamesController(mockService.Object);
 
         // Act
-        var result = await controller.GetAll();
+        var result = await controller.GetAll(new GameQueryParams());
 
         // Assert
         var ok = Assert.IsType<OkObjectResult>(result.Result);
-        var returned = Assert.IsAssignableFrom<IEnumerable<VideoGameDto>>(ok.Value);
-        Assert.Equal(2, returned.Count());
+        var returned = Assert.IsType<PagedResultDto<VideoGameDto>>(ok.Value);
+        Assert.Equal(2, returned.Items.Count());
     }
 
     [Fact]
-    public async Task GetAll_WhenNoGamesExist_ReturnsOkWithEmptyList()
+    public async Task GetAll_WhenNoGamesExist_ReturnsOkWithEmptyPagedResult()
     {
         // Arrange
+        var pagedResult = new PagedResultDto<VideoGameDto>([], 0, 1, 10);
         var mockService = new Mock<IVideoGameService>();
-        mockService.Setup(s => s.GetAllAsync()).ReturnsAsync([]);
+        mockService.Setup(s => s.GetAllAsync(It.IsAny<GameQueryParams>())).ReturnsAsync(pagedResult);
         var controller = new GamesController(mockService.Object);
 
         // Act
-        var result = await controller.GetAll();
+        var result = await controller.GetAll(new GameQueryParams());
 
         // Assert
         var ok = Assert.IsType<OkObjectResult>(result.Result);
-        var returned = Assert.IsAssignableFrom<IEnumerable<VideoGameDto>>(ok.Value);
-        Assert.Empty(returned);
+        var returned = Assert.IsType<PagedResultDto<VideoGameDto>>(ok.Value);
+        Assert.Empty(returned.Items);
     }
 
     // ── GET /api/games/{id} ───────────────────────────────────────────────────
@@ -95,18 +98,15 @@ public class GamesControllerTests
     }
 
     [Fact]
-    public async Task GetById_WhenGameNotFound_Returns404()
+    public async Task GetById_WhenGameNotFound_ThrowsNotFoundException()
     {
         // Arrange
         var mockService = new Mock<IVideoGameService>();
         mockService.Setup(s => s.GetByIdAsync(99)).ReturnsAsync((VideoGameDto?)null);
         var controller = new GamesController(mockService.Object);
 
-        // Act
-        var result = await controller.GetById(99);
-
-        // Assert
-        Assert.IsType<NotFoundResult>(result.Result);
+        // Act & Assert
+        await Assert.ThrowsAsync<NotFoundException>(() => controller.GetById(99));
     }
 
     // ── POST /api/games ───────────────────────────────────────────────────────
@@ -152,7 +152,7 @@ public class GamesControllerTests
     }
 
     [Fact]
-    public async Task Update_WhenGameNotFound_Returns404()
+    public async Task Update_WhenGameNotFound_ThrowsNotFoundException()
     {
         // Arrange
         var mockService = new Mock<IVideoGameService>();
@@ -160,11 +160,8 @@ public class GamesControllerTests
                    .ReturnsAsync((VideoGameDto?)null);
         var controller = new GamesController(mockService.Object);
 
-        // Act
-        var result = await controller.Update(99, MakeCreateDto());
-
-        // Assert
-        Assert.IsType<NotFoundResult>(result.Result);
+        // Act & Assert
+        await Assert.ThrowsAsync<NotFoundException>(() => controller.Update(99, MakeCreateDto()));
     }
 
     // ── DELETE /api/games/{id} ────────────────────────────────────────────────
@@ -185,17 +182,14 @@ public class GamesControllerTests
     }
 
     [Fact]
-    public async Task Delete_WhenGameNotFound_Returns404()
+    public async Task Delete_WhenGameNotFound_ThrowsNotFoundException()
     {
         // Arrange
         var mockService = new Mock<IVideoGameService>();
         mockService.Setup(s => s.DeleteAsync(99)).ReturnsAsync(false);
         var controller = new GamesController(mockService.Object);
 
-        // Act
-        var result = await controller.Delete(99);
-
-        // Assert
-        Assert.IsType<NotFoundResult>(result);
+        // Act & Assert
+        await Assert.ThrowsAsync<NotFoundException>(() => controller.Delete(99));
     }
 }
